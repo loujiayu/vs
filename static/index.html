@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hello Electron React!</title>
+    <link rel="stylesheet" href="../node_modules/font-awesome/css/font-awesome.min.css"/>
+    <!-- <script>
+      (function() {
+        if (!process.env.HOT) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = '../dist/style.css';
+          document.write(link.outerHTML);
+        }
+      }());
+    </script> -->
+  </head>
+  <body>
+    <nav class="tabs">
+      <div class="control">
+        <a href="#" class="fa fa-angle-left backward"></a>
+        <a href="#" class="fa fa-angle-right forward"></a>
+      </div>
+      <div class="search">
+        <div class="search-wrapper">
+          <input type="text" name="name" id="search-input" placeholder="">
+          <span id="search-value" class="center-align">Search or enter website name</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <a href="#" class="fa fa-arrow-circle-down download"></a>
+        <a href="#" class="fa fa-share share"></a>
+      </div>
+    </nav>
+
+    <div id="webviews"></div>
+
+    <script src="index.js"></script>
+    <!-- <script>
+      (function() {
+        const script = document.createElement('script');
+        // script.src = (process.env.HOT) ? 'http://localhost:3000/static/index.js': 'index.js'
+        // script.src = (process.env.HOT) ? 'http://localhost:3000/dist/bundle.js' : '../dist/bundle.js';
+        // document.write(script.outerHTML);
+      }());
+    </script> -->
+  </body>
+</html>
