@@ -117,23 +117,23 @@ export function onUnexpectedError(e: any): void {
 // 	return error;
 // }
 
-// const canceledName = 'Canceled';
+const canceledName = 'Canceled';
 
-// /**
-//  * Checks if the given error is a promise in canceled state
-//  */
-// export function isPromiseCanceledError(error: any): boolean {
-// 	return error instanceof Error && error.name === canceledName && error.message === canceledName;
-// }
+/**
+ * Checks if the given error is a promise in canceled state
+ */
+export function isPromiseCanceledError(error: any): boolean {
+	return error instanceof Error && error.name === canceledName && error.message === canceledName;
+}
 
-// /**
-//  * Returns an error that signals cancellation.
-//  */
-// export function canceled(): Error {
-// 	let error = new Error(canceledName);
-// 	error.name = error.message;
-// 	return error;
-// }
+/**
+ * Returns an error that signals cancellation.
+ */
+export function canceled(): Error {
+	let error = new Error(canceledName);
+	error.name = error.message;
+	return error;
+}
 
 // /**
 //  * Returns an error that signals something is not implemented.
@@ -150,13 +150,13 @@ export function illegalArgument(name?: string): Error {
 	}
 }
 
-// export function illegalState(name?: string): Error {
-// 	if (name) {
-// 		return new Error(`Illegal state: ${name}`);
-// 	} else {
-// 		return new Error('Illegal state');
-// 	}
-// }
+export function illegalState(name?: string): Error {
+	if (name) {
+		return new Error(`Illegal state: ${name}`);
+	} else {
+		return new Error('Illegal state');
+	}
+}
 
 // export function readonly(name?: string): Error {
 // 	return name

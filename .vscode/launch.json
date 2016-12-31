@@ -1,0 +1,31 @@
+{
+  // Use IntelliSense to learn about possible Node.js debug attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+			"type": "node",
+			"request": "launch",
+			"name": "Debug VSCode",
+			"program": "${workspaceRoot}/out/main.js",
+			"runtimeExecutable": "${workspaceRoot}/.build/electron/Code - OSS.app/Contents/MacOS/Electron",
+			"sourceMaps": true,
+			"env": {
+				"NODE_ENV": "development",
+				"VSCODE_CLI": "1",
+				"VSCODE_DEV": "1",
+				"ELECTRON_ENABLE_STACK_DUMPING": "1",
+				"ELECTRON_ENABLE_LOGGING": "1"
+			}
+		},
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Process",
+      "port": 5858,
+      "outFiles": [],
+      "sourceMaps": true
+    }
+  ]
+}
