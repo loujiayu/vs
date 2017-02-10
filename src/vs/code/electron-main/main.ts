@@ -11,6 +11,8 @@ import { assign } from 'vs/base/common/objects';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { mkdirp } from 'vs/base/node/pfs';
 import { Server, serve, connect } from 'vs/base/parts/ipc/node/ipc.net';
+import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
+import { EnvironmentService } from 'vs/platform/environment/node/environmentService';
 import { ILogService, MainLogService } from 'vs/code/electron-main/log';
 import { ILaunchChannel, LaunchChannel, LaunchChannelClient, ILaunchService } from './launch';
 import { ServicesAccessor, IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -142,6 +144,10 @@ function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
 
 function createServices(args: ParsedArgs): IInstantiationService {
   const services = new ServiceCollection();
+
+	services.set(IEnvironmentService, new SyncDescriptor(EnvironmentService, args, process.execPath));
+	services.set(ILogService, new SyncDescriptor(MainLogService));
+
   return new InstantiationService(services, true);
 }
 

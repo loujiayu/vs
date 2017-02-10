@@ -1,12 +1,17 @@
 {
   "name": "code-oss-dev",
+  "version": "1.8.0",
   "electronVersion": "1.4.6",
   "distro": "8c3e97e3425cc9814496472ab73e076de2ba99ee",
+  "author": {
+    "name": "Microsoft Corporation"
+  },
   "main": "./out/main",
   "private": true,
   "scripts": {
     "test": "mocha",
     "preinstall": "node build/npm/preinstall.js",
+    "postinstall": "node build/npm/postinstall.js",
     "compile": "gulp compile",
     "watch": "gulp watch",
     "monaco-editor-setup": "node scripts/monaco-editor-setup.js",
@@ -93,7 +98,11 @@
     "vscode-nls-dev": "^2.0.1"
   },
   "repository": {
-    "type": "git"
+    "type": "git",
+    "url": "https://github.com/Microsoft/vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode/issues"
   },
   "config": {
     "ghooks": {
