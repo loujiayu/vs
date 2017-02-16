@@ -11,6 +11,9 @@ import { assign } from 'vs/base/common/objects';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { mkdirp } from 'vs/base/node/pfs';
 import { Server, serve, connect } from 'vs/base/parts/ipc/node/ipc.net';
+import { GitAskpassService } from 'vs/workbench/parts/git/electron-main/askpassService';
+// import { Server as ElectronIPCServer } from 'vs/base/parts/ipc/electron-main/ipc.electron-main';
+import { AskpassChannel } from 'vs/workbench/parts/git/common/gitIpc';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { EnvironmentService } from 'vs/platform/environment/node/environmentService';
 import { ILogService, MainLogService } from 'vs/code/electron-main/log';
@@ -54,6 +57,39 @@ function createPaths(environmentService: IEnvironmentService): TPromise<any> {
 		environmentService.nodeCachedDataDir
 	];
 	return TPromise.join(paths.map(p => mkdirp(p))) as TPromise<any>;
+}
+
+function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platform.IProcessEnvironment): void {
+	const logService = accessor.get(ILogService);
+	const environmentService = accessor.get(IEnvironmentService);
+	let windowsMainService;
+
+	process.on('uncaughtException', (err: any) => {
+		if (err) {
+			const friendlyError = {
+				message: err.message,
+				stack: err.stack
+			}
+
+			if (windowsMainService) {
+				windowsMainService.sendToFocused('vscode:reportError', JSON.stringify(friendlyError));
+			}
+		}
+		console.error('[uncaught exception in main]: ' + err);
+		if (err.stack) {
+			console.error(err.stack);
+		}
+	});
+
+	logService.log('Starting VS Code in verbose mode');
+	logService.log(`from: ${environmentService.appRoot}`);
+	logService.log('args:', environmentService.args);
+
+	const askpassService = new GitAskpassService();
+	const askpassChannel = new AskpassChannel(askpassService);
+	mainIpcServer.registerChannel('askpass', askpassChannel);
+
+	// const electronIpcServer = new ElectronIPCServer();
 }
 
 function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
@@ -101,22 +137,22 @@ function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
 				client => {
 
 					// Tests from CLI require to be the only instance currently (TODO@Ben support multiple instances and output)
-					if (environmentService.extensionTestsPath && !environmentService.debugExtensionHost.break) {
-						const msg = 'Running extension tests from the command line is currently only supported if no other instance of Code is running.';
-						console.error(msg);
-						client.dispose();
-						return TPromise.wrapError(msg);
-					}
+					// if (environmentService.extensionTestsPath && !environmentService.debugExtensionHost.break) {
+					// 	const msg = 'Running extension tests from the command line is currently only supported if no other instance of Code is running.';
+					// 	console.error(msg);
+					// 	client.dispose();
+					// 	return TPromise.wrapError(msg);
+					// }
 
-					logService.log('Sending env to running instance...');
+					// logService.log('Sending env to running instance...');
 
-					const channel = client.getChannel<ILaunchChannel>('launch');
-					const service = new LaunchChannelClient(channel);
+					// const channel = client.getChannel<ILaunchChannel>('launch');
+					// const service = new LaunchChannelClient(channel);
 
-					return allowSetForegroundWindow(service)
-						.then(() => service.start(environmentService.args, process.env))
-						.then(() => client.dispose())
-						.then(() => TPromise.wrapError('Sent env to running instance. Terminating...'));
+					// return allowSetForegroundWindow(service)
+					// 	.then(() => service.start(environmentService.args, process.env))
+					// 	.then(() => client.dispose())
+					// 	.then(() => TPromise.wrapError('Sent env to running instance. Terminating...'));
 				},
 				err => {
 					if (!retry || platform.isWindows || err.code !== 'ECONNREFUSED') {
