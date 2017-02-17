@@ -12,7 +12,9 @@ import { TPromise } from 'vs/base/common/winjs.base';
 import { mkdirp } from 'vs/base/node/pfs';
 import { Server, serve, connect } from 'vs/base/parts/ipc/node/ipc.net';
 import { GitAskpassService } from 'vs/workbench/parts/git/electron-main/askpassService';
-// import { Server as ElectronIPCServer } from 'vs/base/parts/ipc/electron-main/ipc.electron-main';
+import { spawnSharedProcess } from 'vs/code/node/sharedProcess';
+import { IDisposable } from 'vs/base/common/lifecycle';
+import { Server as ElectronIPCServer } from 'vs/base/parts/ipc/electron-main/ipc.electron-main';
 import { AskpassChannel } from 'vs/workbench/parts/git/common/gitIpc';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { EnvironmentService } from 'vs/platform/environment/node/environmentService';
@@ -89,7 +91,28 @@ function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platfo
 	const askpassChannel = new AskpassChannel(askpassService);
 	mainIpcServer.registerChannel('askpass', askpassChannel);
 
-	// const electronIpcServer = new ElectronIPCServer();
+	const electronIpcServer = new ElectronIPCServer();
+
+	const initData = { args: environmentService.args };
+	const options = {
+		allowOutput: !environmentService.isBuilt || environmentService.verbose,
+		debugPort: environmentService.isBuilt ? null : 5871
+	};
+
+	let sharedProcessDisposable: IDisposable;
+
+	const sharedProcess = spawnSharedProcess(initData, options).then(disposable => {
+		sharedProcessDisposable = disposable;
+		return connect(environmentService.sharedIPCHandle, 'main');
+	});
+
+	// Create a new service collection, because the telemetry service
+	// requires a connection to shared process, which was only established
+	// now.
+	// const services = new ServiceCollection();
+
+	// services.set(IUpdateService, new SyncDescriptor(UpdateService));
+	
 }
 
 function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
