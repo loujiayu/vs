@@ -12,6 +12,11 @@ import { TPromise } from 'vs/base/common/winjs.base';
 import { mkdirp } from 'vs/base/node/pfs';
 import { Server, serve, connect } from 'vs/base/parts/ipc/node/ipc.net';
 import { GitAskpassService } from 'vs/workbench/parts/git/electron-main/askpassService';
+import { IUpdateService } from 'vs/platform/update/common/update';
+import { IWindowsMainService, WindowsManager } from 'vs/code/electron-main/windows';
+import { IWindowsService } from 'vs/platform/windows/common/windows';
+import { WindowsService } from 'vs/platform/windows/electron-main/windowsService';
+import { UpdateService } from 'vs/platform/update/electron-main/updateService';
 import { spawnSharedProcess } from 'vs/code/node/sharedProcess';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Server as ElectronIPCServer } from 'vs/base/parts/ipc/electron-main/ipc.electron-main';
@@ -19,7 +24,7 @@ import { AskpassChannel } from 'vs/workbench/parts/git/common/gitIpc';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { EnvironmentService } from 'vs/platform/environment/node/environmentService';
 import { ILogService, MainLogService } from 'vs/code/electron-main/log';
-import { ILaunchChannel, LaunchChannel, LaunchChannelClient, ILaunchService } from './launch';
+import { LaunchService, ILaunchChannel, LaunchChannel, LaunchChannelClient, ILaunchService } from './launch';
 import { ServicesAccessor, IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { InstantiationService } from 'vs/platform/instantiation/common/instantiationService';
@@ -64,7 +69,7 @@ function createPaths(environmentService: IEnvironmentService): TPromise<any> {
 function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platform.IProcessEnvironment): void {
 	const logService = accessor.get(ILogService);
 	const environmentService = accessor.get(IEnvironmentService);
-	let windowsMainService;
+	let windowsMainService: IWindowsMainService;
 
 	process.on('uncaughtException', (err: any) => {
 		if (err) {
@@ -109,10 +114,12 @@ function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platfo
 	// Create a new service collection, because the telemetry service
 	// requires a connection to shared process, which was only established
 	// now.
-	// const services = new ServiceCollection();
+	const services = new ServiceCollection();
 
-	// services.set(IUpdateService, new SyncDescriptor(UpdateService));
-	
+	services.set(IUpdateService, new SyncDescriptor(UpdateService));
+	services.set(IWindowsMainService, new SyncDescriptor(WindowsManager));
+	services.set(IWindowsService, new SyncDescriptor(WindowsService));
+	services.set(ILaunchService, new SyncDescriptor(LaunchService));
 }
 
 function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
