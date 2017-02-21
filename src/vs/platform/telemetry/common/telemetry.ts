@@ -41,3 +41,35 @@ export interface ITelemetryService {
 
 	getExperiments(): ITelemetryExperiments;
 }
+
+export interface ITelemetryAppender {
+	log(eventName: string, data: any): void;
+}
+
+export function combinedAppender(...appenders: ITelemetryAppender[]): ITelemetryAppender {
+	return { log: (e, d) => appenders.forEach(a => a.log(e, d)) };
+}
+
+export const defaultExperiments: ITelemetryExperiments = {
+	showNewUserWatermark: false,
+	openUntitledFile: true
+};
+
+export const NullTelemetryService = {
+	_serviceBrand: undefined,
+	_experiments: defaultExperiments,
+	publicLog(eventName: string, data?: any) {
+		return TPromise.as<void>(null);
+	},
+	isOptedIn: true,
+	getTelemetryInfo(): TPromise<ITelemetryInfo> {
+		return TPromise.as({
+			instanceId: 'someValue.instanceId',
+			sessionId: 'someValue.sessionId',
+			machineId: 'someValue.machineId'
+		});
+	},
+	getExperiments(): ITelemetryExperiments {
+		return this._experiments;
+	}
+};

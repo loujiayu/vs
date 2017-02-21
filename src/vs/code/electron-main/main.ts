@@ -10,27 +10,44 @@ import * as platform from 'vs/base/common/platform';
 import { assign } from 'vs/base/common/objects';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { mkdirp } from 'vs/base/node/pfs';
+import { VSCodeMenu } from 'vs/code/electron-main/menus';
 import { Server, serve, connect } from 'vs/base/parts/ipc/node/ipc.net';
 import { GitAskpassService } from 'vs/workbench/parts/git/electron-main/askpassService';
 import { IUpdateService } from 'vs/platform/update/common/update';
 import { IWindowsMainService, WindowsManager } from 'vs/code/electron-main/windows';
 import { IWindowsService } from 'vs/platform/windows/common/windows';
 import { WindowsService } from 'vs/platform/windows/electron-main/windowsService';
+import { WindowsChannel } from 'vs/platform/windows/common/windowsIpc';
 import { UpdateService } from 'vs/platform/update/electron-main/updateService';
+import { UpdateChannel } from 'vs/platform/update/common/updateIpc';
 import { spawnSharedProcess } from 'vs/code/node/sharedProcess';
+import { LifecycleService, ILifecycleService } from 'vs/code/electron-main/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ConfigurationService } from 'vs/platform/configuration/node/configurationService';
+import { IBackupMainService } from 'vs/platform/backup/common/backup';
+import { BackupChannel } from 'vs/platform/backup/common/backupIpc';
+import { IURLService } from 'vs/platform/url/common/url';
+import { URLChannel } from 'vs/platform/url/common/urlIpc';
+import { IStorageService, StorageService } from 'vs/code/electron-main/storage';
+import { IRequestService } from 'vs/platform/request/node/request';
+import { RequestService } from 'vs/platform/request/node/requestService';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Server as ElectronIPCServer } from 'vs/base/parts/ipc/electron-main/ipc.electron-main';
 import { AskpassChannel } from 'vs/workbench/parts/git/common/gitIpc';
+import { BackupMainService } from 'vs/platform/backup/electron-main/backupMainService';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { EnvironmentService } from 'vs/platform/environment/node/environmentService';
 import { ILogService, MainLogService } from 'vs/code/electron-main/log';
 import { LaunchService, ILaunchChannel, LaunchChannel, LaunchChannelClient, ILaunchService } from './launch';
+import { ITelemetryService, NullTelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { ServicesAccessor, IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
+import { URLService } from 'vs/platform/url/electron-main/urlService';
 import { InstantiationService } from 'vs/platform/instantiation/common/instantiationService';
 import { IEnvironmentService, ParsedArgs } from 'vs/platform/environment/common/environment';
 import { parseMainProcessArgv } from 'vs/platform/environment/node/argv';
 import * as fs from 'original-fs';
+import product from 'vs/platform/product';
 
 function quit(accessor: ServicesAccessor, error?: Error): void;
 function quit(accessor: ServicesAccessor, message?: string): void;
@@ -69,6 +86,10 @@ function createPaths(environmentService: IEnvironmentService): TPromise<any> {
 function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platform.IProcessEnvironment): void {
 	const logService = accessor.get(ILogService);
 	const environmentService = accessor.get(IEnvironmentService);
+	const instantiationService = accessor.get(IInstantiationService);
+	const lifecycleService = accessor.get(ILifecycleService);
+	const configurationService = accessor.get(IConfigurationService) as ConfigurationService<any>;
+
 	let windowsMainService: IWindowsMainService;
 
 	process.on('uncaughtException', (err: any) => {
@@ -120,6 +141,96 @@ function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platfo
 	services.set(IWindowsMainService, new SyncDescriptor(WindowsManager));
 	services.set(IWindowsService, new SyncDescriptor(WindowsService));
 	services.set(ILaunchService, new SyncDescriptor(LaunchService));
+
+	services.set(ITelemetryService, NullTelemetryService);
+
+	const instantiationService2 = instantiationService.createChild(services);
+
+	instantiationService2.invokeFunction(accessor => {
+		// TODO@Joao: unfold this
+		windowsMainService = accessor.get(IWindowsMainService);
+
+		// Register more Main IPC services
+		const launchService = accessor.get(ILaunchService);
+		const launchChannel = new LaunchChannel(launchService);
+		mainIpcServer.registerChannel('launch', launchChannel);
+		// Register more Electron IPC services
+		const updateService = accessor.get(IUpdateService);
+		const updateChannel = new UpdateChannel(updateService);
+		electronIpcServer.registerChannel('update', updateChannel);
+
+		const urlService = accessor.get(IURLService);
+		const urlChannel = instantiationService2.createInstance(URLChannel, urlService);
+		electronIpcServer.registerChannel('url', urlChannel);
+
+		const backupService = accessor.get(IBackupMainService);
+		const backupChannel = instantiationService2.createInstance(BackupChannel, backupService);
+		electronIpcServer.registerChannel('backup', backupChannel);
+
+		const windowsService = accessor.get(IWindowsService);
+		const windowsChannel = new WindowsChannel(windowsService);
+		electronIpcServer.registerChannel('windows', windowsChannel);
+		sharedProcess.done(client => client.registerChannel('windows', windowsChannel));
+
+		// Make sure we associate the program with the app user model id
+		// This will help Windows to associate the running program with
+		// any shortcut that is pinned to the taskbar and prevent showing
+		// two icons in the taskbar for the same app.
+		if (platform.isWindows && product.win32AppUserModelId) {
+			app.setAppUserModelId(product.win32AppUserModelId);
+		}
+
+		function dispose() {
+			if (mainIpcServer) {
+				mainIpcServer.dispose();
+				mainIpcServer = null;
+			}
+
+			if (sharedProcessDisposable) {
+				sharedProcessDisposable.dispose();
+			}
+
+			// if (windowsMutex) {
+			// 	windowsMutex.release();
+			// }
+
+			configurationService.dispose();
+		}
+
+		// Dispose on app quit
+		app.on('will-quit', () => {
+			logService.log('App#will-quit: disposing resources');
+
+			dispose();
+		});
+
+		// Dispose on vscode:exit
+		ipc.on('vscode:exit', (event, code: number) => {
+			logService.log('IPC#vscode:exit', code);
+
+			dispose();
+			process.exit(code); // in main, process.exit === app.exit
+		});
+
+		// Lifecycle
+		lifecycleService.ready();
+
+		// Propagate to clients
+		windowsMainService.ready(userEnv);
+
+		// Install Menu
+		const menu = instantiationService2.createInstance(VSCodeMenu);
+		menu.ready();
+
+		// Open our first window
+		if (environmentService.args['new-window'] && environmentService.args._.length === 0) {
+			windowsMainService.open({ cli: environmentService.args, forceNewWindow: true, forceEmpty: true, initialStartup: true }); // new window if "-n" was used without paths
+		} else if (global.macOpenFiles && global.macOpenFiles.length && (!environmentService.args._ || !environmentService.args._.length)) {
+			windowsMainService.open({ cli: environmentService.args, pathsToOpen: global.macOpenFiles, initialStartup: true }); // mac: open-file event received on startup
+		} else {
+			windowsMainService.open({ cli: environmentService.args, forceNewWindow: environmentService.args['new-window'], diffMode: environmentService.args.diff, initialStartup: true }); // default: read paths from cli
+		}
+	})
 }
 
 function setupIPC(accessor: ServicesAccessor): TPromise<Server> {
@@ -213,6 +324,12 @@ function createServices(args: ParsedArgs): IInstantiationService {
 
 	services.set(IEnvironmentService, new SyncDescriptor(EnvironmentService, args, process.execPath));
 	services.set(ILogService, new SyncDescriptor(MainLogService));
+	services.set(ILifecycleService, new SyncDescriptor(LifecycleService));
+	services.set(IStorageService, new SyncDescriptor(StorageService));
+	services.set(IConfigurationService, new SyncDescriptor(ConfigurationService));
+	services.set(IRequestService, new SyncDescriptor(RequestService));
+	services.set(IURLService, new SyncDescriptor(URLService, args['open-url']));
+	services.set(IBackupMainService, new SyncDescriptor(BackupMainService));
 
   return new InstantiationService(services, true);
 }
@@ -230,13 +347,30 @@ function start(): void {
 
   const instantiationService = createServices(args);
 
-  // return new TPromise(() => {}).done(null);
-  return getShellEnvironment().then(shellEnv => {
-    assign(process.env, shellEnv);
-    return instantiationService.invokeFunction(a => createPaths(a.get(IEnvironmentService)))
-      .then(() => instantiationService.invokeFunction(setupIPC))
-      // .then(mainIpcServer => instantiationService.invokeFunction(main, mainIpcServer, env));
-  }).done(null, err => instantiationService.invokeFunction(quit, err));
+	return getShellEnvironment().then(shellEnv => {
+		// Patch `process.env` with the user's shell environment
+		assign(process.env, shellEnv);
+
+		return instantiationService.invokeFunction(accessor => {
+			const environmentService = accessor.get(IEnvironmentService);
+			const instanceEnv = {
+				VSCODE_PID: String(process.pid),
+				VSCODE_IPC_HOOK: environmentService.mainIPCHandle,
+				VSCODE_SHARED_IPC_HOOK: environmentService.sharedIPCHandle,
+				VSCODE_NLS_CONFIG: process.env['VSCODE_NLS_CONFIG']
+			};
+
+			// Patch `process.env` with the instance's environment
+			assign(process.env, instanceEnv);
+
+			// Collect all environment patches to send to other processes
+			const env = assign({}, shellEnv, instanceEnv);
+
+			return instantiationService.invokeFunction(a => createPaths(a.get(IEnvironmentService)))
+				.then(() => instantiationService.invokeFunction(setupIPC))
+				.then(mainIpcServer => instantiationService.invokeFunction(main, mainIpcServer, env));
+		});
+	}).done(null, err => instantiationService.invokeFunction(quit, err));
 }
 
 start()
