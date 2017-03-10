@@ -11,6 +11,9 @@
 			"program": "${workspaceRoot}/out/main.js",
 			"runtimeExecutable": "${workspaceRoot}/.build/electron/Code - OSS.app/Contents/MacOS/Electron",
 			"sourceMaps": true,
+      "args": [
+				"--verbose"
+			],
 			"env": {
 				"NODE_ENV": "development",
 				"VSCODE_CLI": "1",

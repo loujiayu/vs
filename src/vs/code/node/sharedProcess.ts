@@ -27,7 +27,7 @@ function _spawnSharedProcess(initData: ISharedProcessInitData, options: ISharedP
 		AMD_ENTRYPOINT: 'vs/code/node/sharedProcessMain',
 		ELECTRON_NO_ASAR: '1'
 	});
-
+	
 	if (options.allowOutput) {
 		env['VSCODE_ALLOW_IO'] = 'true';
 	}

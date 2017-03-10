@@ -176,9 +176,9 @@ function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platfo
 		// This will help Windows to associate the running program with
 		// any shortcut that is pinned to the taskbar and prevent showing
 		// two icons in the taskbar for the same app.
-		if (platform.isWindows && product.win32AppUserModelId) {
-			app.setAppUserModelId(product.win32AppUserModelId);
-		}
+		// if (platform.isWindows && product.win32AppUserModelId) {
+		// 	app.setAppUserModelId(product.win32AppUserModelId);
+		// }
 
 		function dispose() {
 			if (mainIpcServer) {
@@ -219,17 +219,17 @@ function main(accessor: ServicesAccessor, mainIpcServer: Server, userEnv: platfo
 		windowsMainService.ready(userEnv);
 
 		// Install Menu
-		const menu = instantiationService2.createInstance(VSCodeMenu);
-		menu.ready();
+		// const menu = instantiationService2.createInstance(VSCodeMenu);
+		// menu.ready();
 
-		// Open our first window
-		if (environmentService.args['new-window'] && environmentService.args._.length === 0) {
-			windowsMainService.open({ cli: environmentService.args, forceNewWindow: true, forceEmpty: true, initialStartup: true }); // new window if "-n" was used without paths
-		} else if (global.macOpenFiles && global.macOpenFiles.length && (!environmentService.args._ || !environmentService.args._.length)) {
-			windowsMainService.open({ cli: environmentService.args, pathsToOpen: global.macOpenFiles, initialStartup: true }); // mac: open-file event received on startup
-		} else {
-			windowsMainService.open({ cli: environmentService.args, forceNewWindow: environmentService.args['new-window'], diffMode: environmentService.args.diff, initialStartup: true }); // default: read paths from cli
-		}
+		// // Open our first window
+		// if (environmentService.args['new-window'] && environmentService.args._.length === 0) {
+		// 	windowsMainService.open({ cli: environmentService.args, forceNewWindow: true, forceEmpty: true, initialStartup: true }); // new window if "-n" was used without paths
+		// } else if (global.macOpenFiles && global.macOpenFiles.length && (!environmentService.args._ || !environmentService.args._.length)) {
+		// 	windowsMainService.open({ cli: environmentService.args, pathsToOpen: global.macOpenFiles, initialStartup: true }); // mac: open-file event received on startup
+		// } else {
+		// 	windowsMainService.open({ cli: environmentService.args, forceNewWindow: environmentService.args['new-window'], diffMode: environmentService.args.diff, initialStartup: true }); // default: read paths from cli
+		// }
 	})
 }
 
